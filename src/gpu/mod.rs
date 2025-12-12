@@ -1,0 +1,43 @@
+//! GPU compute module
+
+mod buffers;
+mod pipeline;
+
+pub use crate::gpu_crypto::{GpuContext, GpuAffinePoint};
+pub use pipeline::KangarooPipeline;
+pub use buffers::GpuBuffers;
+
+use bytemuck::{Pod, Zeroable};
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct GpuConfig {
+    pub dp_mask_lo: [u32; 4],
+    pub dp_mask_hi: [u32; 4],
+    pub num_kangaroos: u32,
+    pub steps_per_call: u32,
+    pub jump_table_size: u32,
+    pub _padding: u32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct GpuKangaroo {
+    pub x: [u32; 8],
+    pub y: [u32; 8],
+    pub z: [u32; 8],
+    pub dist: [u32; 8],
+    pub ktype: u32,
+    pub is_active: u32,
+    pub _padding: [u32; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct GpuDistinguishedPoint {
+    pub x: [u32; 8],
+    pub z: [u32; 8],
+    pub dist: [u32; 8],
+    pub ktype: u32,
+    pub kangaroo_id: u32,
+}

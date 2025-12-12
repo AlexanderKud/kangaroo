@@ -1,0 +1,57 @@
+[package]
+name = "kangaroo"
+version = "0.1.0"
+edition = "2021"
+authors = ["oritwoen"]
+description = "Pollard's Kangaroo ECDLP solver for secp256k1 using Vulkan/Metal/DX12 compute"
+license = "MIT"
+repository = "https://github.com/oritwoen/kangaroo"
+keywords = ["bitcoin", "ecdlp", "kangaroo", "gpu", "secp256k1"]
+categories = ["cryptography", "command-line-utilities"]
+
+[dependencies]
+# GPU Compute
+wgpu = "24.0"
+pollster = "0.4"
+bytemuck = { version = "1.19", features = ["derive"] }
+
+# Crypto
+k256 = { version = "0.13", features = ["arithmetic", "expose-field"] }
+bitcoin = { version = "0.32", features = ["rand", "secp-recovery"] }
+hex = "0.4"
+
+# Performance
+dashmap = "6.1"
+rayon = "1.10"
+
+# CLI / IO
+clap = { version = "4", features = ["derive"] }
+indicatif = "0.17"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async (for GPU buffer reads)
+futures = "0.3"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.10"
+
+[[bin]]
+name = "kangaroo"
+path = "src/main.rs"
+
+[[bench]]
+name = "solve_benchmark"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

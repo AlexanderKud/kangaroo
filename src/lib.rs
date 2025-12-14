@@ -12,8 +12,9 @@ mod crypto;
 mod gpu;
 mod gpu_crypto;
 mod math;
+mod solver;
 
-pub use cpu::KangarooSolver;
+pub use solver::KangarooSolver;
 pub use crypto::{full_verify, parse_hex_u256, parse_pubkey, verify_key, Point};
 pub use gpu_crypto::GpuContext;
 
@@ -221,7 +222,7 @@ pub fn run(args: Args) -> anyhow::Result<()> {
     }
 
     // Create kangaroo solver
-    let mut solver = cpu::KangarooSolver::new(
+    let mut solver = solver::KangarooSolver::new(
         gpu_context,
         pubkey.clone(),
         start,

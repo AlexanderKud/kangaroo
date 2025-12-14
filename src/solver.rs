@@ -1,7 +1,9 @@
-//! Main Kangaroo solver coordination
+//! GPU-accelerated Kangaroo solver
+//!
+//! Coordinates GPU compute with CPU collision detection.
 
-use super::init::{generate_jump_table, initialize_kangaroos};
-use super::DPTable;
+use crate::cpu::init::{generate_jump_table, initialize_kangaroos};
+use crate::cpu::DPTable;
 use crate::crypto::{Point, U256};
 use crate::gpu::{
     GpuBuffers, GpuConfig, GpuContext, GpuDistinguishedPoint, GpuKangaroo, KangarooPipeline,

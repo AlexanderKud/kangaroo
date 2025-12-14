@@ -1,12 +1,8 @@
-//! CPU-side coordination and collision detection
+//! CPU-side utilities: collision detection and initialization
 
-mod dp_table;
-mod init;
-mod solver;
 mod cpu_solver;
+mod dp_table;
+pub mod init;
 
-pub use dp_table::DPTable;
-#[allow(unused_imports)]
-pub use init::{generate_jump_table, initialize_kangaroos};
-pub use solver::KangarooSolver;
 pub use cpu_solver::CpuKangarooSolver;
+pub use dp_table::DPTable;

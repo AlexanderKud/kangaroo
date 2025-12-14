@@ -19,11 +19,19 @@ Most existing Kangaroo implementations (JeanLucPons/Kangaroo, RCKangaroo, etc.) 
 
 ## Installation
 
+### Arch Linux (AUR)
+
+```bash
+paru -S kangaroo
+```
+
+### Cargo
+
 ```bash
 cargo install kangaroo
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/oritwoen/kangaroo

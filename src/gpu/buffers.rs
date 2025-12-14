@@ -8,8 +8,7 @@ use wgpu::{BindGroup, Buffer, BufferUsages};
 
 /// GPU buffer collection
 pub struct GpuBuffers {
-    #[allow(dead_code)]
-    config_buffer: Buffer,
+    pub config_buffer: Buffer,
     #[allow(dead_code)]
     jump_points_buffer: Buffer,
     #[allow(dead_code)]

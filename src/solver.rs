@@ -10,9 +10,12 @@ use crate::gpu::{
 };
 use crate::math::create_dp_mask;
 use anyhow::Result;
+use std::time::Instant;
 use tracing::info;
 
 const MAX_DISTINGUISHED_POINTS: u32 = 65_536;
+/// Target dispatch time in milliseconds (stay under TDR threshold)
+const TARGET_DISPATCH_MS: u128 = 50;
 
 /// Shared resources for batch mode (pipeline created once, reused)
 #[allow(dead_code)]
@@ -232,10 +235,8 @@ impl KangarooSolver {
         let kangaroos = initialize_kangaroos(&pubkey, &start, range_bits, num_kangaroos)?;
         upload_kangaroos(&ctx, &buffers, &kangaroos)?;
 
-        // Use start for key computation: k = start + tame_dist - wild_dist
-        // Pass full 256-bit start to DPTable
-
-        Ok(Self {
+        // Create solver instance
+        let mut solver = Self {
             ctx,
             pipeline,
             buffers,
@@ -243,7 +244,30 @@ impl KangarooSolver {
             total_ops: 0,
             num_kangaroos,
             steps_per_call,
-        })
+        };
+
+        // Auto-calibrate steps_per_call
+        solver.calibrate(dp_bits, verbose);
+
+        // Update config buffer with calibrated value and correct DP mask
+        let final_config = GpuConfig {
+            dp_mask_lo: [dp_mask[0], dp_mask[1], dp_mask[2], dp_mask[3]],
+            dp_mask_hi: [dp_mask[4], dp_mask[5], dp_mask[6], dp_mask[7]],
+            num_kangaroos,
+            steps_per_call: solver.steps_per_call,
+            jump_table_size: 256,
+            _padding: 0,
+        };
+        solver.ctx.queue.write_buffer(
+            &solver.buffers.config_buffer,
+            0,
+            bytemuck::bytes_of(&final_config),
+        );
+
+        // Reset DP count after calibration warmup
+        solver.reset_dp_count()?;
+
+        Ok(solver)
     }
 
     /// Run one batch of GPU operations
@@ -401,6 +425,90 @@ impl KangarooSolver {
             .queue
             .write_buffer(&self.buffers.dp_count_buffer, 0, &[0u8; 4]);
         Ok(())
+    }
+
+    /// Calibrate steps_per_call by measuring actual GPU dispatch times
+    fn calibrate(&mut self, dp_bits: u32, verbose: bool) {
+        let candidates = [16u32, 32, 64, 128, 256, 512];
+        let mut best_steps = candidates[0];
+
+        if verbose {
+            info!("Calibrating GPU performance...");
+        }
+
+        for &steps in &candidates {
+            // Check DP buffer constraint first
+            let max_steps = Self::select_steps_per_call(steps, self.num_kangaroos, dp_bits, MAX_DISTINGUISHED_POINTS);
+            if max_steps < steps {
+                // Would overflow DP buffer, stop here
+                break;
+            }
+
+            // Update config buffer with new steps_per_call
+            let config = GpuConfig {
+                dp_mask_lo: [0; 4], // Not used in timing test
+                dp_mask_hi: [0; 4],
+                num_kangaroos: self.num_kangaroos,
+                steps_per_call: steps,
+                jump_table_size: 256,
+                _padding: 0,
+            };
+            self.ctx.queue.write_buffer(
+                &self.buffers.config_buffer,
+                0,
+                bytemuck::bytes_of(&config),
+            );
+
+            // Warm up dispatch
+            self.dispatch_once();
+
+            // Timed dispatch
+            let start = Instant::now();
+            self.dispatch_once();
+            let elapsed_ms = start.elapsed().as_millis();
+
+            if verbose {
+                info!("  steps_per_call={}: {}ms", steps, elapsed_ms);
+            }
+
+            if elapsed_ms <= TARGET_DISPATCH_MS {
+                best_steps = steps;
+            } else {
+                // Too slow, stop searching
+                break;
+            }
+        }
+
+        // Apply the best value
+        self.steps_per_call = best_steps;
+
+        if verbose {
+            info!("Calibrated: steps_per_call={}", best_steps);
+        }
+    }
+
+    /// Single GPU dispatch without readback (for calibration)
+    fn dispatch_once(&self) {
+        let mut encoder = self
+            .ctx
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Calibration Encoder"),
+            });
+
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Calibration Pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.pipeline.pipeline);
+            pass.set_bind_group(0, &self.buffers.bind_group, &[]);
+            let workgroups = self.num_kangaroos.div_ceil(64);
+            pass.dispatch_workgroups(workgroups, 1, 1);
+        }
+
+        self.ctx.queue.submit(Some(encoder.finish()));
+        self.ctx.device.poll(wgpu::Maintain::Wait);
     }
 }
 

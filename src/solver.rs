@@ -380,7 +380,7 @@ impl KangarooSolver {
             tx.send(result).unwrap();
         });
 
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         rx.recv()??;
 
         let data = slice.get_mapped_range();
@@ -401,7 +401,7 @@ impl KangarooSolver {
             tx.send(result).unwrap();
         });
 
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         rx.recv()??;
 
         let data = slice.get_mapped_range();
@@ -508,7 +508,7 @@ impl KangarooSolver {
         }
 
         self.ctx.queue.submit(Some(encoder.finish()));
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
     }
 }
 

@@ -19,7 +19,7 @@ impl GpuContext {
             ..Default::default()
         });
 
-        let mut adapters: Vec<_> = instance.enumerate_adapters(wgpu::Backends::all());
+        let mut adapters: Vec<_> = instance.enumerate_adapters(wgpu::Backends::all()).await;
 
         // Prefer discrete > virtual > integrated > cpu/other
         adapters.sort_by_key(|a| match a.get_info().device_type {
@@ -49,7 +49,7 @@ impl GpuContext {
                 // memory_hints is a newer feature (wgpu 22+), ensuring we use recent version
                 memory_hints: wgpu::MemoryHints::Performance, 
                 ..Default::default()
-            }, None) // trace path
+            })
             .await
             .context("Failed to create GPU device")?;
 
@@ -141,7 +141,7 @@ impl GpuContext {
             tx.send(result).unwrap();
         });
         
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
         rx.await??;
         
         let data = slice.get_mapped_range();

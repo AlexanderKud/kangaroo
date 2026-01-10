@@ -2,170 +2,10 @@
 //!
 //! Run with: cargo test --release cpu_vs_gpu -- --nocapture --ignored
 
-use k256::elliptic_curve::ops::MulByGenerator;
-use k256::elliptic_curve::ops::Reduce;
-use k256::elliptic_curve::PrimeField;
-use k256::U256 as K256U256;
-use k256::{ProjectivePoint, Scalar};
-use kangaroo::{parse_hex_u256, parse_pubkey, verify_key, GpuContext, KangarooSolver};
-use std::collections::HashMap;
+use kangaroo::{
+    parse_hex_u256, parse_pubkey, verify_key, CpuKangarooSolver, GpuContext, KangarooSolver,
+};
 use std::time::{Duration, Instant};
-
-/// Pure CPU Kangaroo solver using k256
-struct CpuKangarooSolver {
-    pubkey: ProjectivePoint,
-    start: u128,
-    range_bits: u32,
-    dp_mask: u128,
-    tame_table: HashMap<u128, u128>, // x_low -> distance
-    wild_table: HashMap<u128, u128>,
-    ops: u64,
-}
-
-impl CpuKangarooSolver {
-    fn new(pubkey: ProjectivePoint, start: u128, range_bits: u32, dp_bits: u32) -> Self {
-        let dp_mask = (1u128 << dp_bits) - 1;
-        Self {
-            pubkey,
-            start,
-            range_bits,
-            dp_mask,
-            tame_table: HashMap::new(),
-            wild_table: HashMap::new(),
-            ops: 0,
-        }
-    }
-
-    fn solve(&mut self, timeout: Duration) -> Option<Vec<u8>> {
-        let start_time = Instant::now();
-        let range_middle = 1u128 << (self.range_bits - 1);
-        let mid = self.start + range_middle;
-
-        // Initialize tame kangaroo at mid
-        let tame_scalar = scalar_from_u128(mid);
-        let mut tame_pos = ProjectivePoint::mul_by_generator(&tame_scalar);
-        let mut tame_dist: u128 = 0;
-
-        // Initialize wild kangaroo at pubkey
-        let mut wild_pos = self.pubkey;
-        let mut wild_dist: u128 = 0;
-
-        // Jump table (simple: use powers of 2)
-        let mean_exp = (self.range_bits / 2).saturating_sub(2).max(8);
-        let jump_scalars: Vec<Scalar> = (0..8)
-            .map(|i| {
-                let exp = mean_exp - 4 + i;
-                let exp = exp.clamp(6, 20);
-                scalar_from_u128(1u128 << exp)
-            })
-            .collect();
-        let jump_points: Vec<ProjectivePoint> = jump_scalars
-            .iter()
-            .map(|s| ProjectivePoint::mul_by_generator(s))
-            .collect();
-        let jump_distances: Vec<u128> = (0..8)
-            .map(|i| {
-                let exp = mean_exp - 4 + i;
-                let exp = exp.clamp(6, 20);
-                1u128 << exp
-            })
-            .collect();
-
-        loop {
-            if start_time.elapsed() > timeout {
-                return None;
-            }
-
-            // Tame step
-            let tame_x = get_x_low(&tame_pos);
-            let jump_idx = (tame_x & 7) as usize;
-            tame_pos = tame_pos + jump_points[jump_idx];
-            tame_dist = tame_dist.wrapping_add(jump_distances[jump_idx]);
-            self.ops += 1;
-
-            // Check DP
-            if (tame_x & self.dp_mask) == 0 {
-                if let Some(&wild_d) = self.wild_table.get(&tame_x) {
-                    // Collision! k = mid + tame_dist - wild_dist
-                    let key = mid.wrapping_add(tame_dist).wrapping_sub(wild_d);
-                    let key_bytes = key_to_bytes(key);
-                    if verify_key_bytes(&key_bytes, &self.pubkey) {
-                        return Some(key_bytes);
-                    }
-                }
-                self.tame_table.insert(tame_x, tame_dist);
-            }
-
-            // Wild step
-            let wild_x = get_x_low(&wild_pos);
-            let jump_idx = (wild_x & 7) as usize;
-            wild_pos = wild_pos + jump_points[jump_idx];
-            wild_dist = wild_dist.wrapping_add(jump_distances[jump_idx]);
-            self.ops += 1;
-
-            // Check DP
-            if (wild_x & self.dp_mask) == 0 {
-                if let Some(&tame_d) = self.tame_table.get(&wild_x) {
-                    // Collision! k = mid + tame_dist - wild_dist
-                    let key = mid.wrapping_add(tame_d).wrapping_sub(wild_dist);
-                    let key_bytes = key_to_bytes(key);
-                    if verify_key_bytes(&key_bytes, &self.pubkey) {
-                        return Some(key_bytes);
-                    }
-                }
-                self.wild_table.insert(wild_x, wild_dist);
-            }
-        }
-    }
-
-    fn total_ops(&self) -> u64 {
-        self.ops
-    }
-}
-
-fn scalar_from_u128(val: u128) -> Scalar {
-    let mut bytes = [0u8; 32];
-    bytes[16..].copy_from_slice(&val.to_be_bytes());
-    let uint = K256U256::from_be_slice(&bytes);
-    Scalar::reduce(uint)
-}
-
-fn get_x_low(point: &ProjectivePoint) -> u128 {
-    use k256::elliptic_curve::sec1::ToEncodedPoint;
-    let affine = point.to_affine();
-    let encoded = affine.to_encoded_point(false);
-    let x_bytes = encoded.x().unwrap();
-    // Get low 128 bits
-    let mut low = [0u8; 16];
-    low.copy_from_slice(&x_bytes[16..32]);
-    u128::from_be_bytes(low)
-}
-
-fn key_to_bytes(key: u128) -> Vec<u8> {
-    let bytes = key.to_be_bytes();
-    // Trim leading zeros
-    let mut start = 0;
-    while start < bytes.len() - 1 && bytes[start] == 0 {
-        start += 1;
-    }
-    bytes[start..].to_vec()
-}
-
-fn verify_key_bytes(key: &[u8], pubkey: &ProjectivePoint) -> bool {
-    if key.is_empty() || key.len() > 32 {
-        return false;
-    }
-    let mut key_be = [0u8; 32];
-    let offset = 32 - key.len();
-    key_be[offset..].copy_from_slice(key);
-
-    if let Some(scalar) = Scalar::from_repr_vartime(key_be.into()) {
-        let computed = ProjectivePoint::mul_by_generator(&scalar);
-        computed == *pubkey
-    } else {
-        false
-    }
-}
 
 #[test]
 #[ignore]
@@ -202,11 +42,10 @@ fn cpu_vs_gpu_benchmark() {
     for (puzzle_num, pubkey_hex, start_hex, _expected) in &puzzles {
         let pubkey = parse_pubkey(pubkey_hex).expect("valid pubkey");
         let start_bytes = parse_hex_u256(start_hex).expect("valid start");
-        let start = u128::from_le_bytes(start_bytes[0..16].try_into().unwrap());
         let range_bits = *puzzle_num as u32;
         let dp_bits = (range_bits / 2).saturating_sub(2).clamp(8, 20);
 
-        let mut solver = CpuKangarooSolver::new(pubkey, start, range_bits, dp_bits);
+        let mut solver = CpuKangarooSolver::new(pubkey, start_bytes, range_bits, dp_bits);
         let start_time = Instant::now();
         let found = solver.solve(Duration::from_secs(120));
         let elapsed = start_time.elapsed();
@@ -299,7 +138,6 @@ fn cpu_vs_gpu_benchmark() {
 
     println!("╚══════════════════════════════════════════════════════════════════╝");
 
-    // Calculate totals
     let cpu_total_time: f64 = cpu_results.iter().map(|(t, _, _, _)| t.as_secs_f64()).sum();
     let gpu_total_time: f64 = gpu_results.iter().map(|(t, _, _, _)| t.as_secs_f64()).sum();
     let cpu_total_ops: u64 = cpu_results.iter().map(|(_, o, _, _)| *o).sum();

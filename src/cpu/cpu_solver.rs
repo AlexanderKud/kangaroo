@@ -21,33 +21,7 @@ pub struct CpuKangarooSolver {
 }
 
 impl CpuKangarooSolver {
-    #[allow(dead_code)]
-    pub fn new(pubkey: ProjectivePoint, start_u128: u128, range_bits: u32, dp_bits: u32) -> Self {
-        // NOTE: The original interface took u128 start. We should ideally take U256.
-        // For now, we convert the u128 to Scalar.
-        // To support full P135, we need to change the constructor signature or rely on `run` passing a full scalar.
-        // But `run` in lib.rs calls this. We need to update `lib.rs` too.
-        // Let's fix this struct first.
-
-        let mut bytes = [0u8; 32];
-        bytes[16..].copy_from_slice(&start_u128.to_be_bytes());
-        let start_uint = K256U256::from_be_slice(&bytes);
-        let start = Scalar::reduce(start_uint);
-
-        let dp_mask = (1u128 << dp_bits) - 1;
-        Self {
-            pubkey,
-            start,
-            range_bits,
-            dp_mask,
-            tame_table: HashMap::new(),
-            wild_table: HashMap::new(),
-            ops: 0,
-        }
-    }
-
-    // New constructor that takes full 256-bit start (big-endian bytes)
-    pub fn new_full(
+    pub fn new(
         pubkey: ProjectivePoint,
         start_bytes: [u8; 32],
         range_bits: u32,
@@ -211,26 +185,22 @@ mod tests {
 
     #[test]
     fn test_cpu_solver_simple() {
-        // Key: 0x12345
-        // Pubkey for 0x12345
         let pubkey_str = "02e963ffdfe34e63b68aeb42a5826e08af087660e0dac1c3e79f7625ca4e6ae482";
         let pubkey = parse_pubkey(pubkey_str).unwrap();
 
-        // Range: [0x10000, 0x18000] (contains 0x12345)
-        // Range bits: 15 (size 32768)
-        // Start: 0x10000
-        let start = 0x10000;
         let range_bits = 15;
-        let dp_bits = 4; // Frequent DPs for small range
+        let dp_bits = 4;
 
-        let mut solver = CpuKangarooSolver::new(pubkey, start, range_bits, dp_bits);
+        let mut start_bytes = [0u8; 32];
+        start_bytes[29..32].copy_from_slice(&0x10000u32.to_be_bytes()[1..4]);
+
+        let mut solver = CpuKangarooSolver::new(pubkey, start_bytes, range_bits, dp_bits);
         let result = solver.solve(Duration::from_secs(10));
 
         assert!(result.is_some());
         let key = result.unwrap();
         let hex_key = hex::encode(key);
         let trimmed = hex_key.trim_start_matches('0');
-        // Handle "012345" -> "12345"
         assert_eq!(trimmed, "12345");
     }
 }

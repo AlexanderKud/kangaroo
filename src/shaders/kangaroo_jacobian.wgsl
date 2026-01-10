@@ -32,8 +32,8 @@ struct Kangaroo {
 // AffinePoint is defined in curve_jacobian.wgsl
 
 struct DistinguishedPoint {
-    x: array<u32, 8>,           // Jacobian X
-    z: array<u32, 8>,           // Jacobian Z (for affine X = X/Z²)
+    x: array<u32, 8>,           // Affine X (stored after batch normalization when Z=1)
+    z: array<u32, 8>,           // Z coordinate (always 1 after normalization)
     dist: array<u32, 8>,
     ktype: u32,
     kangaroo_id: u32,
@@ -55,8 +55,7 @@ var<workgroup> shared_z: array<array<u32, 8>, 64>;
 var<workgroup> shared_prod: array<array<u32, 8>, 64>;
 
 // -----------------------------------------------------------------------------
-// Store distinguished point (convert Jacobian X to affine approximation)
-// Real implementation would compute proper affine conversion
+// Store distinguished point (already in affine after batch normalization)
 // -----------------------------------------------------------------------------
 
 fn store_dp(k: Kangaroo, kangaroo_id: u32) {
@@ -64,7 +63,7 @@ fn store_dp(k: Kangaroo, kangaroo_id: u32) {
 
     if (idx < 65536u) {
         var dp: DistinguishedPoint;
-        // Store Jacobian X and Z (CPU will verify using X1*Z2² == X2*Z1²)
+        // Store affine X (Z=1 after normalization)
         dp.x = k.x;
         dp.z = k.z;
         dp.dist = k.dist;

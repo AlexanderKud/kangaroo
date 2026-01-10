@@ -46,7 +46,6 @@ pub struct KangarooSolver {
 }
 
 impl KangarooSolver {
-    /// Create a new solver (with verbose logging)
     pub fn new(
         ctx: GpuContext,
         pubkey: Point,
@@ -59,7 +58,6 @@ impl KangarooSolver {
     }
 
     #[allow(dead_code)]
-    /// Create a solver from shared context (for batch mode - minimal logging)
     pub fn new_with_context(
         ctx: &GpuContext,
         pubkey: Point,
@@ -68,7 +66,6 @@ impl KangarooSolver {
         dp_bits: u32,
         num_kangaroos: u32,
     ) -> Result<Self> {
-        // Clone is cheap - wgpu Device/Queue are Arc-wrapped
         Self::new_internal(
             ctx.clone(),
             pubkey,

@@ -14,13 +14,12 @@ pub struct KangarooPipeline {
 }
 
 impl KangarooPipeline {
-    /// Create the compute pipeline
     pub fn new(ctx: &GpuContext) -> Result<Self> {
         info!("Loading shader sources...");
-        // Use shared shaders from internal gpu_crypto module
+
         let field = crate::gpu_crypto::shaders::FIELD_WGSL;
-        let curve = crate::gpu_crypto::shaders::CURVE_JACOBIAN_WGSL;
-        let kangaroo = include_str!("../shaders/kangaroo_jacobian.wgsl");
+        let curve = crate::gpu_crypto::shaders::CURVE_WGSL;
+        let kangaroo = include_str!("../shaders/kangaroo_affine.wgsl");
 
         info!("Creating shader module...");
         let shader = ctx.create_shader_module("Kangaroo Shader", &[field, curve, kangaroo]);

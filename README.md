@@ -187,28 +187,28 @@ Provider validates range overrides - you cannot search outside the puzzle's key 
 ```
 src/
 ├── main.rs              # CLI entry point
-├── lib.rs               # Library entry point
-├── cli.rs               # CLI utilities
+├── lib.rs               # Library entry + Args + run()
+├── solver.rs            # GPU solver coordination
+├── cli.rs               # CLI utilities (tracing, progress bar)
 ├── provider/
 │   ├── mod.rs           # Provider system interface
 │   └── boha.rs          # boha provider (feature-gated)
 ├── cpu/
-│   ├── solver.rs        # GPU solver coordination
-│   ├── cpu_solver.rs    # Pure CPU solver
-│   └── dp_table.rs      # DP collision detection
+│   ├── cpu_solver.rs    # Pure CPU solver (testing/comparison)
+│   ├── dp_table.rs      # Distinguished Points collision detection
+│   └── init.rs          # Kangaroo initialization + jump tables
 ├── crypto/
 │   └── mod.rs           # k256/secp256k1 wrappers
 ├── gpu/
-│   ├── mod.rs           # GPU module
-│   ├── pipeline.rs      # Compute pipeline
+│   ├── pipeline.rs      # Compute pipeline setup
 │   └── buffers.rs       # GPU buffer management
 ├── gpu_crypto/
 │   ├── context.rs       # GPU context abstraction
-│   └── shaders/         # WGSL shader sources
-│       ├── field.wgsl           # secp256k1 field arithmetic
-│       └── curve_jacobian.wgsl  # Jacobian point operations
+│   └── shaders/         # WGSL shader library
+│       ├── field.wgsl   # secp256k1 field arithmetic
+│       └── curve.wgsl   # Jacobian point operations
 └── shaders/
-    └── kangaroo_jacobian.wgsl  # Main Kangaroo compute shader
+    └── kangaroo_affine.wgsl  # Main Kangaroo compute shader
 ```
 
 ## Requirements

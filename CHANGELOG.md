@@ -1,3 +1,13 @@
+## [0.3.0] - 2026-01-10
+
+### Features
+
+- Add --benchmark flag and BENCHMARK.md (#16)
+- Add affine batch addition mode (~30% faster) (#18)
+
+### Bug Fixes
+
+- Correct misleading comments about Jacobian vs affine coordinates
 ## [0.2.0] - 2026-01-08
 
 ### Features
@@ -27,6 +37,7 @@
 - Add autofix.ci workflow for auto-formatting (#10)
 - Add build and clippy workflow (#12)
 - Add justfile (#14)
+- *(release)* V0.2.0
 ## [0.1.0] - 2025-12-12
 
 ### Features

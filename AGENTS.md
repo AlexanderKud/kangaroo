@@ -39,7 +39,6 @@ kangaroo/
 │   ├── puzzle_solve.rs      # Integration: solve known puzzles
 │   ├── cpu_vs_gpu.rs        # Performance comparison benchmark
 │   └── fixtures.rs          # Test data (Bitcoin puzzles 20-25 bit)
-├── benches/solve_benchmark.rs  # Criterion benchmarks
 ├── justfile                 # Task runner (test, build, release)
 └── PKGBUILD                 # Arch Linux packaging
 ```
@@ -97,7 +96,7 @@ just release 0.4.0     # Bump version, changelog, tag
 
 # Benchmarks
 cargo test --release cpu_vs_gpu -- --nocapture --ignored
-cargo bench            # Criterion benchmarks
+kangaroo --benchmark   # Built-in benchmark suite
 
 # With boha provider
 cargo build --release --features boha

@@ -46,16 +46,11 @@ default = []
 boha = ["dep:boha", "dep:num-bigint"]
 
 [dev-dependencies]
-criterion = "0.5"
 tempfile = "3.10"
 
 [[bin]]
 name = "kangaroo"
 path = "src/main.rs"
-
-[[bench]]
-name = "solve_benchmark"
-harness = false
 
 [profile.release]
 opt-level = 3

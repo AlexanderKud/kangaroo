@@ -150,17 +150,17 @@ fn resolve_params(args: &Args) -> anyhow::Result<ResolvedParams> {
                 .or_else(|| pr.start.clone())
                 .unwrap_or_else(|| "0".to_string());
 
-            let range_bits = match (args.range, pr.range_bits) {
-                (Some(user_range), Some(provider_range)) => {
-                    validate_range_override(user_range, provider_range, &pr.id)?;
+            let range_bits = match args.range {
+                Some(user_range) => {
+                    // User provided explicit range - validate it
+                    validate_search_bounds(&start_str, user_range, pr)?;
                     user_range
                 }
-                (Some(user_range), None) => user_range,
-                (None, Some(provider_range)) => provider_range,
-                (None, None) => 32,
+                None => {
+                    // No user range - calculate from provider bounds if available
+                    calculate_range_bits_from_provider(&start_str, pr)?
+                }
             };
-
-            validate_search_bounds(&start_str, range_bits, pr)?;
 
             (pubkey_str, start_str, range_bits)
         }
@@ -182,20 +182,63 @@ fn resolve_params(args: &Args) -> anyhow::Result<ResolvedParams> {
     })
 }
 
-fn validate_range_override(
-    user_range: u32,
-    provider_range: u32,
-    puzzle_id: &str,
-) -> anyhow::Result<()> {
-    if user_range > provider_range {
+#[cfg(feature = "boha")]
+fn calculate_range_bits_from_provider(
+    start: &str,
+    provider: &provider::ProviderResult,
+) -> anyhow::Result<u32> {
+    let (Some(ref provider_start), Some(ref provider_end)) = (&provider.start, &provider.end)
+    else {
+        return provider.range_bits.ok_or_else(|| {
+            anyhow!(
+                "Provider '{}' has no range information. Use --range to specify search range.",
+                provider.id
+            )
+        });
+    };
+
+    let start_val = BigUint::parse_bytes(start.as_bytes(), 16)
+        .ok_or_else(|| anyhow!("Invalid hex start value: {}", start))?;
+    let provider_start_val = BigUint::parse_bytes(provider_start.as_bytes(), 16)
+        .ok_or_else(|| anyhow!("Invalid provider start hex"))?;
+    let provider_end_val = BigUint::parse_bytes(provider_end.as_bytes(), 16)
+        .ok_or_else(|| anyhow!("Invalid provider end hex"))?;
+
+    if start_val < provider_start_val {
         return Err(anyhow!(
-            "Range {} bits exceeds puzzle '{}' maximum of {} bits",
-            user_range,
-            puzzle_id,
-            provider_range
+            "Start 0x{} is below puzzle '{}' minimum 0x{}",
+            start,
+            provider.id,
+            provider_start
         ));
     }
-    Ok(())
+
+    if start_val > provider_end_val {
+        return Err(anyhow!(
+            "Start 0x{} exceeds puzzle '{}' maximum 0x{}",
+            start,
+            provider.id,
+            provider_end
+        ));
+    }
+
+    let range_size = &provider_end_val - &start_val + BigUint::from(1u32);
+    let bits = range_size.bits() as u32;
+
+    Ok(bits)
+}
+
+#[cfg(not(feature = "boha"))]
+fn calculate_range_bits_from_provider(
+    _start: &str,
+    provider: &provider::ProviderResult,
+) -> anyhow::Result<u32> {
+    provider.range_bits.ok_or_else(|| {
+        anyhow!(
+            "Provider '{}' has no range information. Use --range to specify search range.",
+            provider.id
+        )
+    })
 }
 
 #[cfg(feature = "boha")]

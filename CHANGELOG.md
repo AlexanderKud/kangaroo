@@ -1,3 +1,21 @@
+## [0.4.0] - 2026-01-11
+
+### Bug Fixes
+
+- *(provider)* Calculate range_bits from actual bounds
+
+### Refactor
+
+- [**breaking**] Remove Criterion benchmarks in favor of built-in --benchmark
+- Change CpuKangarooSolver to accept full 256-bit start value
+
+### Documentation
+
+- Add AGENTS.md and fix README architecture section
+
+### Performance
+
+- Implement parallel batch inversion using Blelloch scan (#21)
 ## [0.3.0] - 2026-01-10
 
 ### Features
@@ -8,6 +26,10 @@
 ### Bug Fixes
 
 - Correct misleading comments about Jacobian vs affine coordinates
+
+### Miscellaneous Tasks
+
+- *(release)* V0.3.0
 ## [0.2.0] - 2026-01-08
 
 ### Features

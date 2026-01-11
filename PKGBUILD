@@ -19,12 +19,12 @@ prepare() {
 build() {
   cd "$pkgname"
   export CFLAGS+=" -ffat-lto-objects"
-  cargo build --release --locked --offline
+  cargo build --release --locked --offline --all-features
 }
 
 check() {
   cd "$pkgname"
-  cargo test --locked --offline
+  cargo test --locked --offline --all-features
 }
 
 package() {

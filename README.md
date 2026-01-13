@@ -1,7 +1,15 @@
 # Kangaroo
+
+[![Crates.io](https://img.shields.io/crates/v/kangaroo?style=flat&colorA=130f40&colorB=474787)](https://crates.io/crates/kangaroo)
+[![Downloads](https://img.shields.io/crates/d/kangaroo?style=flat&colorA=130f40&colorB=474787)](https://crates.io/crates/kangaroo)
+[![License](https://img.shields.io/crates/l/kangaroo?style=flat&colorA=130f40&colorB=474787)](LICENSE)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oritwoen/kangaroo)
 
 GPU-accelerated Pollard's Kangaroo algorithm for solving the Elliptic Curve Discrete Logarithm Problem (ECDLP) on secp256k1.
+
+## Community
+
+- [Bitcointalk](https://bitcointalk.org/index.php?topic=5571086) - Discussion thread
 
 ## Features
 

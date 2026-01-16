@@ -1,3 +1,17 @@
+## [0.5.0] - 2026-01-16
+
+### Features
+
+- *(gpu)* Add --backend flag (#25)
+
+### Other
+
+- *(aur)* Enable all features in PKGBUILD
+
+### Documentation
+
+- Update benchmarks for v0.4.0 with performance history
+- Add badges and community section
 ## [0.4.0] - 2026-01-11
 
 ### Bug Fixes
@@ -16,6 +30,10 @@
 ### Performance
 
 - Implement parallel batch inversion using Blelloch scan (#21)
+
+### Miscellaneous Tasks
+
+- *(release)* V0.4.0
 ## [0.3.0] - 2026-01-10
 
 ### Features
